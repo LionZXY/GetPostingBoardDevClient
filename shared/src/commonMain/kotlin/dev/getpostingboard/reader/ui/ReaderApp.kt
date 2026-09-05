@@ -66,6 +66,7 @@ private val LightColors = lightColorScheme(
 @Composable
 fun ReaderApp(store: ReaderStore) {
     val state by store.state.collectAsState()
+    val votingState by store.voting.state.collectAsState()
     val systemDark = isSystemInDarkTheme()
     var dark by rememberSaveable { mutableStateOf(systemDark) }
     var settings by rememberSaveable { mutableStateOf(false) }
@@ -112,7 +113,9 @@ fun ReaderApp(store: ReaderStore) {
                     }
                 }
             }
-            if (settings) ConnectionDialog(state, store, createAccount) { settings = false }
+            if (settings && votingState.profile == null) ConnectionDialog(state, store, createAccount) { settings = false }
+            VotingDialogs(store.voting, connect = { store.voting.closeVotes(); settings = true },
+                readPost = { board, post -> store.selectBoard(board); store.openThread(post) })
         }
     }
 }
@@ -220,7 +223,7 @@ private fun FeedScreen(state: ReaderState, store: ReaderStore, listState: LazyLi
                 }
                 else -> LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(visible, key = { it.id }) { post -> MessageCard(post, state.query.board, state.detail?.id == post.rootId) { store.openThread(post) } }
+                    items(visible, key = { it.id }) { post -> MessageCard(post, state.query.board, state.detail?.id == post.rootId, store.voting) { store.openThread(post) } }
                     item { MoreButton(state.loadingMore, state.nextBefore != null, "Load older messages", store::loadMore) }
                     item { Text("${visible.size} messages loaded · Newest first", style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp)) }
@@ -235,12 +238,12 @@ private fun ReaderStore.loadMoreOrRefresh(state: ReaderState) {
 }
 
 @Composable
-private fun MessageCard(post: Post, board: Board, selected: Boolean, onClick: () -> Unit) {
+private fun MessageCard(post: Post, board: Board, selected: Boolean, voting: VotingStore, onClick: () -> Unit) {
     OutlinedCard(onClick = onClick, shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AuthorLine(post)
+            AuthorLine(post, voting)
             if (post.title.isNotBlank()) Text(post.title, style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
             Text(post.text, style = MaterialTheme.typography.bodyMedium, lineHeight = 22.sp,
@@ -254,17 +257,22 @@ private fun MessageCard(post: Post, board: Board, selected: Boolean, onClick: ()
                 Text(if (post.threadId != null) "Read thread" else "Open conversation", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            VoteScore(post, board, voting)
         }
     }
 }
 
 @Composable
-private fun AuthorLine(post: Post) {
+private fun AuthorLine(post: Post, voting: VotingStore) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
         Box(Modifier.size(28.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape), contentAlignment = Alignment.Center) {
             Text(post.author.take(1).uppercase(), fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
         }
-        Text(post.author, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium,
+        if (post.agentId != null && voting.available) Box(Modifier.weight(1f)) {
+            TextButton(onClick = { voting.openProfile(PublicAgent(post.agentId, post.author)) }, contentPadding = PaddingValues(0.dp)) {
+                Text(post.author, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
+            }
+        } else Text(post.author, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(relativeTime(post.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -293,8 +301,9 @@ private fun ThreadScreen(detail: DetailState, store: ReaderStore, modifier: Modi
                     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
                         Text("#${detail.post.topic}", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                         if (detail.post.title.isNotBlank()) Text(detail.post.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                        AuthorLine(detail.post)
+                        AuthorLine(detail.post, store.voting)
                         PostBody(detail.post.text)
+                        VoteScore(detail.post, detail.board, store.voting)
                         HorizontalDivider(Modifier.padding(top = 8.dp))
                     }
                 }
@@ -314,8 +323,9 @@ private fun ThreadScreen(detail: DetailState, store: ReaderStore, modifier: Modi
                     val expanded = detail.expandedReplies[reply.id] ?: reply
                     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(14.dp)).padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        AuthorLine(reply)
+                        AuthorLine(reply, store.voting)
                         PostBody(expanded.text)
+                        VoteScore(expanded, detail.board, store.voting)
                         if (detail.board == Board.NAMED && expanded.body.isEmpty()) {
                             if (reply.id in detail.expandingReplies) LinearProgressIndicator(Modifier.fillMaxWidth())
                             else TextButton(onClick = { store.expandReply(reply) }) { Text("Read full reply") }
@@ -346,7 +356,7 @@ private fun CacheNotice(savedAt: Long) {
 }
 
 @Composable
-private fun FailureBanner(failure: ReaderFailure, retry: () -> Unit) {
+internal fun FailureBanner(failure: ReaderFailure, retry: () -> Unit) {
     var now by remember { mutableLongStateOf(Clock.System.now().epochSeconds) }
     LaunchedEffect(failure.retryAt) {
         now = Clock.System.now().epochSeconds

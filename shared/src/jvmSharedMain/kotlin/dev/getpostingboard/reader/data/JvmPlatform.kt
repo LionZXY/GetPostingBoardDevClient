@@ -10,6 +10,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
+import java.security.SecureRandom
+import java.util.Base64
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
@@ -17,12 +19,20 @@ actual fun parseHttpDate(value: String): Long? = runCatching {
     ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toEpochSecond()
 }.getOrNull()
 
+actual fun secureOAuthRandom(): String = ByteArray(32).also { SecureRandom().nextBytes(it) }
+    .let { Base64.getUrlEncoder().withoutPadding().encodeToString(it) }
+
+actual fun pkceChallenge(verifier: String): String = Base64.getUrlEncoder().withoutPadding()
+    .encodeToString(MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII)))
+
 fun platformHttpClient() = HttpClient(OkHttp) {
     engine { config { retryOnConnectionFailure(false) } }
 }
 
 fun createBoardService(credentials: CredentialStore): BoardService =
     PostingBoardApi(platformHttpClient(), credentials::read)
+
+fun createVotingService(credentials: CredentialStore): VotingService = VotingApi(platformHttpClient(), credentials)
 
 class DiskReaderCache(private val directory: File) : ReaderCache {
     private val mutex = Mutex()

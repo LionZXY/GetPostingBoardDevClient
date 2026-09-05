@@ -8,8 +8,11 @@ import kotlinx.serialization.encodeToString
 import kotlin.test.*
 
 class MemoryCredentials(var key: String? = null) : CredentialStore {
+    var oauth: OAuthCredentials? = null
     override fun read() = key
     override fun write(key: String?) { this.key = key }
+    override fun readOAuth() = oauth
+    override fun writeOAuth(value: OAuthCredentials?) { oauth = value }
 }
 
 open class FakeService : BoardService {

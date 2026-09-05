@@ -48,7 +48,10 @@ class ReaderStore(
     private val repository: ReaderRepository,
     private val credentials: CredentialStore,
     private val scope: CoroutineScope,
+    votingService: VotingService? = null,
+    oauthBrowser: OAuthBrowser? = null,
 ) {
+    val voting = VotingStore(votingService, scope, oauthBrowser)
     private val mutable = MutableStateFlow(ReaderState(connected = !credentials.read().isNullOrBlank()))
     val state = mutable.asStateFlow()
     private var feedJob: Job? = null
@@ -320,6 +323,7 @@ class ReaderStore(
     }
 
     fun close() {
+        voting.close()
         ++connectionVersion
         pendingAccount = null
         feedJob?.cancel(); detailJob?.cancel(); connectionJob?.cancel()

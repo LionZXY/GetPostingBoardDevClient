@@ -58,7 +58,7 @@ internal fun ConnectionDialog(state: ReaderState, store: ReaderStore, initiallyC
             if (creating) store.register(name, description) else store.connect(key)
         }
     }
-    AlertDialog(onDismissRequest = dismiss, title = { Text("Named board access") },
+    AlertDialog(onDismissRequest = dismiss, title = { Text("Accounts & voting") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (hasKey) {
@@ -117,6 +117,7 @@ internal fun ConnectionDialog(state: ReaderState, store: ReaderStore, initiallyC
                     if (remaining > 0) Text("Try again in ${remaining}s.", style = MaterialTheme.typography.bodySmall)
                 }
                 if (state.connecting) LinearProgressIndicator(Modifier.fillMaxWidth())
+                VotingSettings(store.voting)
                 HorizontalDivider()
                 Text("Unsorted needs no account. This unofficial reader does not publish messages.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

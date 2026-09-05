@@ -1,10 +1,10 @@
 # Verification — September 5, 2026
 
-The shared Kotlin implementation was compiled for Android and desktop JVM. The Android debug APK was built successfully. The Gradle 8.13 distribution archive checksum matched its published SHA-256.
+The voting update compiles for Android and desktop. The debug APK and the optimized, signed Android release APK both build successfully.
 
 ## Automated tests
 
-The final registration-update invocation ran 37 tests: 36 passed and the opt-in live API check was skipped. No live account was created.
+59 tests were discovered: **58 passed**, 1 opt-in live smoke test was skipped, and none failed.
 
 | Suite | Tests | Failures | Skipped |
 | --- | ---: | ---: | ---: |
@@ -14,38 +14,56 @@ The final registration-update invocation ran 37 tests: 36 passed and the opt-in 
 | ReaderUiTest | 5 | 0 | 0 |
 | RegistrationApiTest | 7 | 0 | 0 |
 | RegistrationStoreTest | 7 | 0 | 0 |
+| VotingApiTest | 10 | 0 | 0 |
+| VotingStoreTest | 9 | 0 | 0 |
+| VotingUiTest | 3 | 0 | 0 |
 
-The opt-in live test reads Unsorted and one root thread; it was not run for this update. The API contract suites use MockEngine, including registration payload/header checks, credential isolation, name conflicts, throttling, malformed receipts, and uncertain network outcomes. State tests verify automatic connection, duplicate-submit protection, retention of issued keys after storage failures, retrying storage without registering again, and stale results after disconnect. UI tests exercise account creation, masked key reveal/copy, reconnecting existing keys, duplicate-name errors, and the existing phone/tablet reading flows.
+The normal suite is hermetic. Voting tests cover credential-free public reads, exclusive lookup parameters, OAuth-only writes, PKCE, state/issuer/redirect validation, token refresh and rotation, JSON and SSE MCP responses, signed karma, paginated vote lists, immutable conflicts, quota resets, duplicate submissions, uncertain-write retries, disconnect races, and the rendered phone voting flow. Registration, existing-key connection, browsing, and tablet tests also pass.
 
-Final command:
+Final checks included:
 
 ```sh
 ./gradlew :shared:desktopTest :androidApp:assembleDebug :androidApp:lintDebug
+./gradlew :androidApp:assembleRelease :androidApp:lintRelease -PappVersionName=1.1.0 -PappVersionCode=1001000
 ```
 
-## Android build and lint
+The second invocation used the generated release signing key through environment variables. Secret values were not placed in commands, logs, screenshots, or source files.
 
-`assembleDebug` and `lintDebug` both completed successfully after the registration update. Lint reported zero errors and 20 dependency-update warnings. The manifest explicitly disables backups and legacy full backups; Android 12+ cloud backup and device-transfer rules exclude app data. The delivered APK passed `apksigner verify`.
+## Live API checks
 
-APK SHA-256: `44e263206979dc479e2706ee111f28aa8a4d949097eabe37a6eca2b63033dca0`
+- Fetched the current public OpenAPI, voting guide, MCP guide, and OAuth discovery metadata.
+- Verified OAuth dynamic client registration accepts the Android custom-scheme callback and a desktop loopback callback. This created app client metadata, not a board account.
+- Read one live Unsorted page and a public `/jovan` summary for one message. The summary matched the requested board and message and returned integer score/up/down totals.
+- No board account was created and no live vote was cast. Full browser OAuth linking, token exchange against a real account, and live authenticated voting were not exercised; these paths are covered by contract and state tests.
+
+## Android builds and signing
+
+Android debug and release lint both completed with zero errors and 22 warnings: 20 dependency-update notices and two KTX-style suggestions for URI parsing. The release build also emitted an upstream Compose mapping warning; packaging and signature verification succeeded.
+
+The release APK is version **1.1.0**, version code **1001000**. `apksigner verify --print-certs` passed.
+
+- Release APK SHA-256: `4b8b2a20802b2b61bbf75f39cd00f2912f86fcb26ce158fa4db333ab9cf7c01c`
+- Debug APK SHA-256: `ef4435f0d063b0af0158bc929a07459dec86d602fba82080a7f95ed639be81fd`
+- Release signing certificate SHA-256: `25f695758ec685431b02864590665bce6bc00f7a58633dd79af7bd896719cef5`
+
+The new release keystore is outside the repository, its password is in macOS Keychain, and all four GitHub signing-secret names were verified after configuration. See [release setup and backup locations](RELEASING.md).
+
+## GitHub release workflow
+
+Both workflow files passed **actionlint 1.7.12**. The new release workflow validates stable version tags, derives Android versions, runs tests/lint, builds with the repository signing secrets, verifies the APK, and publishes an APK plus checksums. No GitHub release was published during local verification; publishing is triggered by a version tag.
 
 ## Visual checks
 
-The following images were rendered from the actual shared Compose UI and inspected. They use synthetic test messages and credentials, not a captured live feed or account. The key receipt screenshot is from the desktop test target, which keeps credentials for the session; Android saves them with Keystore encryption.
+These images were captured from the shared Compose app and inspected after the final layout changes. They contain synthetic demonstration content and accounts.
 
-![Phone feed](phone-feed.png)
+![Named board feed](app-feed.png)
 
-![Phone conversation](phone-thread.png)
+![Conversation](app-conversation.png)
 
-![Tablet split view](tablet.png)
+![Voting](app-voting.png)
 
-![Create account](phone-registration.png)
+![Public profile](app-profile.png)
 
-![API key receipt](phone-api-key.png)
+## Remaining runtime scope
 
-## Scope
-
-- No Android emulator or physical Android device was available. Android compilation, APK packaging/signature validation, lint, and shared-UI execution were verified; on-device runtime behavior remains to be checked.
-- No named-board API key was supplied and no live registration was performed. Registration and authenticated reading are covered by contract and UI tests. The registration fields and response were checked against the live public OpenAPI contract and integration guide.
-- The delivered APK is signed with a development/debug certificate. A production release should use your own release signing configuration.
-- The pinned dependencies are intentional; lint may report newer available versions.
+Android packaging, optimization, signing, lint, and desktop execution of the shared UI were verified. Android device/emulator runtime and the system-browser OAuth round trip still require a manual check. Existing API-key reading and OAuth voting are separate connections; OAuth-created accounts do not expose a REST key to the app.

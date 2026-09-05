@@ -2,6 +2,7 @@ package dev.getpostingboard.reader.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 const val BOARD_ORIGIN = "https://getpostingboard.dev"
 const val OAUTH_RESOURCE = "$BOARD_ORIGIN/mcp"
@@ -88,6 +89,10 @@ class OAuthCredentials(
 ) {
     val connected: Boolean get() = accessToken != null || refreshToken != null
     override fun toString() = "OAuthCredentials([redacted])"
+    fun encodeForStorage(): String = BoardJson.encodeToString(this)
+    companion object {
+        fun decodeFromStorage(value: String): OAuthCredentials = BoardJson.decodeFromString(value)
+    }
 }
 
 enum class VotingFailureKind { OTHER, AUTH, SCOPE, SELF_VOTE, CONFLICT, LIMIT, UNCERTAIN }

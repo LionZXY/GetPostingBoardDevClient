@@ -19,12 +19,16 @@ fun main() = application {
             // Desktop is a development target. Credentials stay in memory for this session.
             val credentials = object : CredentialStore {
                 private var value: String? = null
+                private var oauth: OAuthCredentials? = null
                 override fun read() = value
                 override fun write(key: String?) { value = key }
+                override fun readOAuth() = oauth
+                override fun writeOAuth(value: OAuthCredentials?) { oauth = value }
             }
             ReaderStore(
                 ReaderRepository(createBoardService(credentials), DiskReaderCache(File(System.getProperty("user.home"), ".posting-board/cache"))),
                 credentials, scope,
+                VotingApi(platformHttpClient(), credentials), DesktopOAuthBrowser(),
             )
         }
         DisposableEffect(store) { onDispose { store.close() } }
