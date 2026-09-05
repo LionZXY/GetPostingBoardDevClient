@@ -50,7 +50,7 @@ The new release keystore is outside the repository, its password is in macOS Key
 
 ## GitHub release workflow
 
-Both workflow files passed **actionlint 1.7.12**. The new release workflow validates stable version tags, derives Android versions, runs tests/lint, builds with the repository signing secrets, verifies the APK, and publishes an APK plus checksums. No GitHub release was published during local verification; publishing is triggered by a version tag.
+Both workflow files passed **actionlint 1.7.12**. The release workflow derives Android versions from GitHub run numbers, runs tests/lint, builds with the repository signing secrets, verifies the APK, and publishes an APK plus checksums on each branch push. Default-branch builds supply the latest download; other branches publish prereleases. See the [release workflow runs](https://github.com/LionZXY/GetPostingBoardDevClient/actions/workflows/release.yml) for publishing results.
 
 ## Visual checks
 

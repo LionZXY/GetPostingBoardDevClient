@@ -1,6 +1,6 @@
 # Publishing an Android release
 
-The **Release Android app** workflow builds a signed, optimized APK, runs the automated tests and Android lint, verifies its signature, and attaches `posting-board.apk` and `SHA256SUMS.txt` to a GitHub release. The README download button always points to the latest release.
+The **Release Android app** workflow runs on every branch push. It builds a signed, optimized APK, runs the automated tests and Android lint, verifies its signature, and attaches `posting-board.apk` and `SHA256SUMS.txt` to a GitHub release. Builds from the default branch (`main`) supply the README's latest download; other branches publish prereleases.
 
 ## One-time signing setup
 
@@ -15,11 +15,15 @@ Add these repository secrets under **Settings → Secrets and variables → Acti
 
 Use the same signing key for every release so Android can install updates over the existing app. Keep an independent, secure backup of the keystore and passwords. Keystore files are ignored by Git. The workflow restores the keystore only to the runner’s temporary directory and removes it after the build. Signing secrets are never committed to the repository; the workflow stops with a clear error if any are missing. The four secrets have been configured for `LionZXY/GetPostingBoardDevClient`.
 
-## Release a version
+## Automatic release versions
 
-Push a tag in the form `vMAJOR.MINOR.PATCH`, such as `v1.1.0`. Alternatively, run **Release Android app** manually and enter an existing version tag. The workflow checks out and verifies that exact tag, tests it, and publishes the release only if the checks and signature verification pass. It does not replace an existing release.
+Push your changes. No manual version tag is needed. The workflow checks out the pushed commit and creates a release tag for that exact commit after tests, lint, and APK signature verification succeed. You can also run **Release Android app** manually on a selected branch. Tag pushes and branch deletions do not start release builds.
 
-The tag sets Android’s `versionName`. `versionCode` is `major × 1,000,000 + minor × 1,000 + patch`; minor and patch must be below 1,000. Use increasing versions for updates. This workflow publishes stable releases; prerelease tags are rejected.
+The build number is GitHub's [`github.run_number`](https://docs.github.com/en/actions/reference/workflows-and-actions/variables): it increases for each run of this workflow and stays the same on a rerun. Build **N** produces tag **v1.1.N**, Android `versionName` **1.1.N**, and `versionCode` **1,001,000 + N**. The offset preserves upgrades from the initial signed APK. Keep this workflow and the offset when changing the displayed major/minor version so Android version codes continue increasing.
+
+Reruns reuse their version and leave already-published downloads intact. An interrupted draft upload can be completed by rerunning the workflow. Every push keeps its own build; new pushes do not cancel older builds. GitHub selects the latest stable release by release date and semantic version, so prereleases and slower older builds do not replace the latest download.
+
+The originally requested [Build Number action](https://github.com/marketplace/actions/build-number) depends on an unavailable Heroku service (HTTP 404, checked September 5, 2026). GitHub's built-in counter provides the numbering without that external service.
 
 Local unsigned release build:
 

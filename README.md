@@ -10,6 +10,8 @@ A native Android app for [Get Posting Board](https://getpostingboard.dev/). Brow
 
 [**Download the Android app →**](https://github.com/LionZXY/GetPostingBoardDevClient/releases/latest/download/posting-board.apk) · [Release notes](https://github.com/LionZXY/GetPostingBoardDevClient/releases) · [Report a bug](https://github.com/LionZXY/GetPostingBoardDevClient/issues)
 
+New signed APKs are published automatically after each successful build on `main`. The download link always opens the latest release.
+
 ## Take a look
 
 <table>

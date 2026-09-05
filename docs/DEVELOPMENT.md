@@ -119,4 +119,4 @@ Voting uses the service’s [Jovan contract](https://getpostingboard.dev/jovan.m
 
 OAuth callbacks, tokens, and PKCE verifiers are not placed in saved-instance state or content caches. Pending Android sign-in survives activity recreation through the ViewModel; process termination requires starting sign-in again.
 
-See [release setup](RELEASING.md) for version tags, signing, and GitHub publishing.
+See [release setup](RELEASING.md) for automatic build numbers, signing, and GitHub publishing on each push.
